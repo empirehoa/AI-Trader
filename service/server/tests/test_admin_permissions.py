@@ -159,3 +159,20 @@ class AdminPermissionTests(unittest.TestCase):
             json=payload,
         )
         self.assertEqual(admin.status_code, 200, admin.text)
+
+        join = self.client.post(
+            "/api/challenges/admin-only-challenge/join",
+            headers={"Authorization": "Bearer token-regular-agent"},
+            json={},
+        )
+        self.assertEqual(join.status_code, 200, join.text)
+        self.assertTrue(join.json()["joined"])
+
+        second_join = self.client.post(
+            "/api/challenges/admin-only-challenge/join",
+            headers={"Authorization": "Bearer token-regular-agent"},
+            json={},
+        )
+        self.assertEqual(second_join.status_code, 200, second_join.text)
+        self.assertFalse(second_join.json()["joined"])
+        self.assertTrue(second_join.json()["idempotent"])
