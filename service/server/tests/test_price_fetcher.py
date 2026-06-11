@@ -96,6 +96,29 @@ class UsStockPriceTimezoneTests(unittest.TestCase):
         mock_alpha.assert_not_called()
         mock_yfinance.assert_called_once_with("AAPL", "2025-08-01T14:30:00Z")
 
+    def test_polymarket_mid_price_uses_best_bid_and_ask_from_unsorted_book(self) -> None:
+        book = {
+            "bids": [
+                {"price": "0.001", "size": "1000"},
+                {"price": "0.41", "size": "1000"},
+                {"price": "0.421", "size": "1000"},
+            ],
+            "asks": [
+                {"price": "0.999", "size": "1000"},
+                {"price": "0.45", "size": "1000"},
+                {"price": "0.422", "size": "1000"},
+            ],
+        }
+
+        with patch.object(
+            price_fetcher,
+            "_polymarket_resolve_reference",
+            return_value={"token_id": "123", "outcome": "Yes", "market": {}},
+        ), patch.object(price_fetcher, "_polymarket_get_json", return_value=book):
+            price = price_fetcher._get_polymarket_mid_price("market-slug", token_id="123", outcome="Yes")
+
+        self.assertEqual(price, 0.4215)
+
 
 if __name__ == "__main__":
     unittest.main()

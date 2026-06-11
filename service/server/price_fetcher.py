@@ -482,19 +482,28 @@ def _get_polymarket_mid_price(reference: str, token_id: Optional[str] = None, ou
         bids = data.get("bids") if isinstance(data.get("bids"), list) else []
         asks = data.get("asks") if isinstance(data.get("asks"), list) else []
 
-        def _best_px(levels: list) -> Optional[float]:
-            if not levels:
-                return None
-            first = levels[0]
-            if isinstance(first, dict) and "price" in first:
-                try:
-                    return float(first["price"])
-                except Exception:
-                    return None
-            return None
+        def _level_prices(levels: list) -> list[float]:
+            prices = []
+            for level in levels:
+                if isinstance(level, dict) and "price" in level:
+                    try:
+                        price = float(level["price"])
+                    except Exception:
+                        continue
+                    if _polymarket_price_valid(price):
+                        prices.append(price)
+            return prices
 
-        best_bid = _best_px(bids)
-        best_ask = _best_px(asks)
+        def _best_bid(levels: list) -> Optional[float]:
+            prices = _level_prices(levels)
+            return max(prices) if prices else None
+
+        def _best_ask(levels: list) -> Optional[float]:
+            prices = _level_prices(levels)
+            return min(prices) if prices else None
+
+        best_bid = _best_bid(bids)
+        best_ask = _best_ask(asks)
         if best_bid is not None or best_ask is not None:
             mid = (best_bid + best_ask) / 2 if (best_bid is not None and best_ask is not None) else (best_bid if best_bid is not None else best_ask)
             mid = float(f"{mid:.6f}")
