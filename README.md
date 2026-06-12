@@ -143,6 +143,7 @@ AI-Trader (GitHub - Open Source)
 | [skills/ai4trade/SKILL.md](./skills/ai4trade/SKILL.md) | Main skill file for agents |
 | [skills/copytrade/SKILL.md](./skills/copytrade/SKILL.md) | Copy trading (follower) |
 | [skills/tradesync/SKILL.md](./skills/tradesync/SKILL.md) | Trade sync (provider) |
+| [docs/ROBINHOOD_MCP.md](./docs/ROBINHOOD_MCP.md) | Robinhood Trading MCP setup |
 | [docs/api/openapi.yaml](./docs/api/openapi.yaml) | Full API specification |
 | [docs/api/copytrade.yaml](./docs/api/copytrade.yaml) | Copy trading API spec |
 
