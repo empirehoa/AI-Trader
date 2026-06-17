@@ -16,6 +16,7 @@ from .engine import Engine
 from .loop import Loop
 from .research import search_events
 from .backtest import backtest_symbol, available_symbols
+from . import social
 
 
 def _cmd_status(engine: Engine) -> None:
@@ -48,6 +49,22 @@ def _cmd_events(topic: str) -> None:
             vol = f"${mk.volume_24h:,.0f}/24h" if mk.volume_24h else "thin"
             print(f"      - {mk.headline}   [{vol}]")
         print()
+
+
+def _cmd_social(topic: list[str]) -> None:
+    print("Social research platforms (read-only, for signal — never posting):\n")
+    for s in social.status():
+        mark = "✓" if s.enabled else "·"
+        detail = f"via {s.via}" if s.enabled else f"needs {' or '.join(social.PLATFORM_KEYS[s.name])}"
+        print(f"  {mark} {s.name:<28} {detail}")
+    for k in social.KEYLESS:
+        print(f"  ✓ {k:<28} (no key needed)")
+    print("\n  Note: LinkedIn / Facebook are not supported by the research engine.")
+    if topic:
+        print(f"\n--- research: {' '.join(topic)} ---")
+        print(social.research(" ".join(topic)))
+    else:
+        print("\n  Add keys to .env.secrets, then: python -m trader.cli social <topic>")
 
 
 def _cmd_backtest(symbols: list[str]) -> None:
@@ -100,6 +117,8 @@ def main(argv: list[str] | None = None) -> int:
     ev_p.add_argument("topic", nargs="+", help="topic to search, e.g. fed rate cuts")
     bt_p = sub.add_parser("backtest", help="backtest the strategy logic over saved history")
     bt_p.add_argument("symbols", nargs="*", help="symbols to test (default: all saved)")
+    so_p = sub.add_parser("social", help="social-media research status + run (read-only)")
+    so_p.add_argument("topic", nargs="*", help="topic/ticker to research")
     run_p = sub.add_parser("run", help="evaluate and (optionally) place paper trades")
     run_p.add_argument("--execute", action="store_true", help="actually place paper trades")
     loop_p = sub.add_parser("loop", help="autonomous paper loop (exits + entries on an interval)")
@@ -114,6 +133,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "backtest":
         _cmd_backtest(args.symbols)
+        return 0
+    if args.command == "social":
+        _cmd_social(args.topic)
         return 0
 
     try:

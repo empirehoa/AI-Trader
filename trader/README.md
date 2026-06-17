@@ -28,7 +28,28 @@ python -m trader.cli run                 # DRY-RUN: print the buys it would plac
 python -m trader.cli run --execute       # place those paper trades (simulated $)
 python -m trader.cli loop --execute      # autonomous loop: exits + entries on an interval
 python -m trader.cli backtest AMD NVDA   # backtest the strategy logic over real history
+python -m trader.cli social NVDA         # social-media research status + run (read-only)
 ```
+
+## Social-media research (read-only — never posting)
+
+`social` reports which platforms are configured and, when a local
+last30days-skill install is available (`LAST30DAYS_DIR`), researches a topic
+across them. It is strictly for *signal*; nothing is ever published.
+
+Activate platforms by adding keys to `.env.secrets`:
+
+| Platform | Key(s) |
+|----------|--------|
+| Reddit + TikTok + Instagram | `SCRAPECREATORS_API_KEY` (one key, three platforms) |
+| X / Twitter | `XAI_API_KEY` (or `AUTH_TOKEN`+`CT0` cookies) |
+| Bluesky | `BSKY_HANDLE` + `BSKY_APP_PASSWORD` |
+| Truth Social | `TRUTHSOCIAL_TOKEN` |
+| Web search | `BRAVE_API_KEY` / `EXA_API_KEY` / `PARALLEL_API_KEY` |
+| Synthesis | `OPENAI_API_KEY` / `OPENROUTER_API_KEY` / `GEMINI_API_KEY` |
+
+YouTube, Hacker News, and Polymarket need no key. **LinkedIn and Facebook are
+not supported** by the research engine.
 
 ## Backtesting
 
