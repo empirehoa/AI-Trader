@@ -17,6 +17,7 @@ from .loop import Loop
 from .research import search_events
 from .backtest import backtest_symbol, available_symbols
 from . import social
+from . import copytrade as ct
 
 
 def _cmd_status(engine: Engine) -> None:
@@ -49,6 +50,40 @@ def _cmd_events(topic: str) -> None:
             vol = f"${mk.volume_24h:,.0f}/24h" if mk.volume_24h else "thin"
             print(f"      - {mk.headline}   [{vol}]")
         print()
+
+
+def _cmd_copytrade(engine: Engine, args) -> None:
+    client = engine.client
+    if args.action == "leaders":
+        leaders = ct.leaderboard(client, limit=args.limit)
+        print(f"{'AGENT_ID':>9}  {'NAME':<26}{'SIGNALS':>9}{'PNL':>12}")
+        for l in leaders:
+            print(f"{l.agent_id:>9}  {l.name[:26]:<26}{l.signal_count:>9}{l.total_pnl:>12,.0f}")
+        print("\n  Follow one with: python -m trader.cli copytrade follow <AGENT_ID>")
+    elif args.action == "follow":
+        if not args.ids:
+            print("Pass one or more leader agent IDs to follow.")
+            return
+        for r in ct.follow_leaders(client, [int(i) for i in args.ids]):
+            status = "followed" if r["ok"] else f"failed: {r.get('error', r.get('resp'))}"
+            print(f"  leader {r['leader_id']}: {status}")
+        print("  Their positions will be mirrored onto the paper account (source=copied).")
+    elif args.action == "unfollow":
+        for i in args.ids:
+            client.unfollow(int(i))
+            print(f"  unfollowed leader {i}")
+    elif args.action == "following":
+        subs = client.following()
+        if not subs:
+            print("  not following anyone yet.")
+        for s in subs:
+            print(f"  leader {s.get('leader_id')} {s.get('leader_name','?')} | copied={s.get('copied_count')} | {s.get('status')}")
+    elif args.action == "copied":
+        rows = ct.copied_positions(client)
+        if not rows:
+            print("  no copied positions yet.")
+        for p in rows:
+            print(f"  {p.get('symbol')} x{p.get('quantity')} entry {p.get('entry_price')} pnl {p.get('pnl')} ({p.get('source')})")
 
 
 def _cmd_social(topic: list[str]) -> None:
@@ -119,6 +154,10 @@ def main(argv: list[str] | None = None) -> int:
     bt_p.add_argument("symbols", nargs="*", help="symbols to test (default: all saved)")
     so_p = sub.add_parser("social", help="social-media research status + run (read-only)")
     so_p.add_argument("topic", nargs="*", help="topic/ticker to research")
+    cp_p = sub.add_parser("copytrade", help="match leaderboard agents on the paper account")
+    cp_p.add_argument("action", choices=["leaders", "follow", "unfollow", "following", "copied"])
+    cp_p.add_argument("ids", nargs="*", help="leader agent IDs (for follow/unfollow)")
+    cp_p.add_argument("--limit", type=int, default=15, help="leaders to list")
     run_p = sub.add_parser("run", help="evaluate and (optionally) place paper trades")
     run_p.add_argument("--execute", action="store_true", help="actually place paper trades")
     loop_p = sub.add_parser("loop", help="autonomous paper loop (exits + entries on an interval)")
@@ -152,6 +191,8 @@ def main(argv: list[str] | None = None) -> int:
         _cmd_run(engine, execute=args.execute)
     elif args.command == "loop":
         _cmd_loop(engine, args)
+    elif args.command == "copytrade":
+        _cmd_copytrade(engine, args)
     return 0
 
 

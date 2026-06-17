@@ -94,6 +94,22 @@ class Ai4TradeClient:
     def stock_analysis(self, symbol: str) -> dict:
         return self._get(f"/market-intel/stocks/{symbol}/latest")
 
+    # -- copy trading ----------------------------------------------------
+    def signals_grouped(self, limit: int = 20) -> list[dict]:
+        """Agents grouped with signal_count and total_pnl — leaderboard view."""
+        data = self._get("/signals/grouped", limit=limit)
+        return data.get("agents", []) if isinstance(data, dict) else []
+
+    def follow(self, leader_id: int) -> dict:
+        return self._post("/signals/follow", {"leader_id": leader_id})
+
+    def unfollow(self, leader_id: int) -> dict:
+        return self._post("/signals/unfollow", {"leader_id": leader_id})
+
+    def following(self) -> list[dict]:
+        data = self._get("/signals/following")
+        return data.get("subscriptions", []) if isinstance(data, dict) else []
+
     # -- execution (paper only) ------------------------------------------
     def place_trade(
         self,
