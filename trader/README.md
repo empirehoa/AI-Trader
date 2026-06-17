@@ -27,7 +27,20 @@ python -m trader.cli events fed rate     # live Polymarket odds for a topic (no 
 python -m trader.cli run                 # DRY-RUN: print the buys it would place
 python -m trader.cli run --execute       # place those paper trades (simulated $)
 python -m trader.cli loop --execute      # autonomous loop: exits + entries on an interval
+python -m trader.cli backtest AMD NVDA   # backtest the strategy logic over real history
 ```
+
+## Backtesting
+
+`backtest` replays a faithful proxy of the strategy (stacked bullish MAs +
+controlled momentum, stop −8% / target +15%) over real daily closes and
+reports trades, win rate, total vs buy-and-hold return, and max drawdown.
+
+History lives in `trader/state/history/<SYMBOL>.json` (git-ignored). Regenerate
+it by pulling daily bars from the Robinhood MCP (`get_equity_historicals`,
+`interval=day`) and writing `{symbol, bars:[{t, c}]}` per symbol. The live
+ai4trade signal can't be replayed historically, so this validates the rules'
+*logic*, not the exact live signal — a sanity check, not a return promise.
 
 ## Autonomous loop
 

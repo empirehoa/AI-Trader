@@ -15,6 +15,7 @@ from .client import Ai4TradeClient, Ai4TradeError
 from .engine import Engine
 from .loop import Loop
 from .research import search_events
+from .backtest import backtest_symbol, available_symbols
 
 
 def _cmd_status(engine: Engine) -> None:
@@ -49,6 +50,25 @@ def _cmd_events(topic: str) -> None:
         print()
 
 
+def _cmd_backtest(symbols: list[str]) -> None:
+    symbols = [s.upper() for s in symbols] or available_symbols()
+    if not symbols:
+        print("No history files in trader/state/history/. Fetch via the Robinhood MCP first (see README).")
+        return
+    print(f"{'SYM':<6}{'TRADES':>7}{'WIN%':>7}{'AVG%':>8}{'TOTAL%':>9}{'B&H%':>9}{'MAXDD%':>8}")
+    for sym in symbols:
+        r = backtest_symbol(sym)
+        if r is None:
+            print(f"{sym:<6}  (insufficient history)")
+            continue
+        print(
+            f"{r.symbol:<6}{r.trades:>7}{r.win_rate_pct:>7.0f}{r.avg_trade_pct:>8.1f}"
+            f"{r.total_return_pct:>9.1f}{r.buy_hold_return_pct:>9.1f}{r.max_drawdown_pct:>8.1f}"
+        )
+    print("\n(Strategy = stacked bullish MAs + controlled momentum, stop -8% / target +15%.")
+    print(" B&H = buy-and-hold over the same window. Logic proxy of the live rules, not a return promise.)")
+
+
 def _cmd_loop(engine: Engine, args) -> None:
     loop = Loop(
         engine=engine,
@@ -78,6 +98,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("scan", help="rank candidates without trading")
     ev_p = sub.add_parser("events", help="live Polymarket odds for a topic (no API key)")
     ev_p.add_argument("topic", nargs="+", help="topic to search, e.g. fed rate cuts")
+    bt_p = sub.add_parser("backtest", help="backtest the strategy logic over saved history")
+    bt_p.add_argument("symbols", nargs="*", help="symbols to test (default: all saved)")
     run_p = sub.add_parser("run", help="evaluate and (optionally) place paper trades")
     run_p.add_argument("--execute", action="store_true", help="actually place paper trades")
     loop_p = sub.add_parser("loop", help="autonomous paper loop (exits + entries on an interval)")
@@ -89,6 +111,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "events":
         _cmd_events(" ".join(args.topic))
+        return 0
+    if args.command == "backtest":
+        _cmd_backtest(args.symbols)
         return 0
 
     try:
