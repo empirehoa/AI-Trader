@@ -13,6 +13,7 @@ import sys
 
 from .client import Ai4TradeClient, Ai4TradeError
 from .engine import Engine
+from .research import search_events
 
 
 def _cmd_status(engine: Engine) -> None:
@@ -33,6 +34,20 @@ def _cmd_scan(engine: Engine) -> None:
             print(f"        - {r}")
 
 
+def _cmd_events(topic: str) -> None:
+    events = search_events(topic)
+    if not events:
+        print(f"No active Polymarket events found for '{topic}'.")
+        return
+    print(f"Polymarket odds for '{topic}' (live, real-money probabilities):\n")
+    for ev in events:
+        print(f"  {ev.title}")
+        for mk in ev.markets:
+            vol = f"${mk.volume_24h:,.0f}/24h" if mk.volume_24h else "thin"
+            print(f"      - {mk.headline}   [{vol}]")
+        print()
+
+
 def _cmd_run(engine: Engine, execute: bool) -> None:
     decisions = engine.run(execute=execute)
     actionable = [d for d in decisions if d.quantity >= 1]
@@ -50,9 +65,15 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("status", help="show the paper scorecard")
     sub.add_parser("scan", help="rank candidates without trading")
+    ev_p = sub.add_parser("events", help="live Polymarket odds for a topic (no API key)")
+    ev_p.add_argument("topic", nargs="+", help="topic to search, e.g. fed rate cuts")
     run_p = sub.add_parser("run", help="evaluate and (optionally) place paper trades")
     run_p.add_argument("--execute", action="store_true", help="actually place paper trades")
     args = parser.parse_args(argv)
+
+    if args.command == "events":
+        _cmd_events(" ".join(args.topic))
+        return 0
 
     try:
         engine = Engine(client=Ai4TradeClient())

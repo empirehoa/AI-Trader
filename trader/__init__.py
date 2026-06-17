@@ -9,9 +9,10 @@ MCP path keeps a human confirmation gate on every live order; this engine only
 ever touches the simulated $100k account.
 """
 
-__all__ = ["Ai4TradeClient", "Strategy", "Engine", "Scorecard"]
+__all__ = ["Ai4TradeClient", "Strategy", "Engine", "Scorecard", "search_events"]
 
 from .client import Ai4TradeClient
 from .strategy import Strategy
 from .scorecard import Scorecard
 from .engine import Engine
+from .research import search_events
