@@ -15,7 +15,7 @@ from .client import Ai4TradeClient, Ai4TradeError
 from .engine import Engine
 from .loop import Loop
 from .research import search_events
-from .backtest import backtest_symbol, available_symbols
+from .backtest import backtest_symbol, available_symbols, optimize
 from . import social
 from . import copytrade as ct
 
@@ -102,6 +102,20 @@ def _cmd_social(topic: list[str]) -> None:
         print("\n  Add keys to .env.secrets, then: python -m trader.cli social <topic>")
 
 
+def _cmd_optimize(symbols: list[str]) -> None:
+    variants = optimize([s.upper() for s in symbols] or None)
+    if not variants:
+        print("No history to optimize over. Fetch via the Robinhood MCP first (see README).")
+        return
+    print(f"{'EXIT STRATEGY':<22}{'AVG RET%':>9}{'B&H%':>8}{'AVG DD%':>9}{'RET/DD':>8}{'BEAT':>7}")
+    for v in variants:
+        print(f"{v.label:<22}{v.avg_return_pct:>9.1f}{v.avg_buy_hold_pct:>8.1f}"
+              f"{v.avg_drawdown_pct:>9.1f}{v.return_over_dd:>8.2f}{v.beat_buy_hold:>4}/{v.symbols}")
+    best = variants[0]
+    print(f"\nBest risk-adjusted: {best.label} (return/drawdown {best.return_over_dd:.2f}).")
+    print("Live engine uses trailing-stop exits accordingly (see StrategyConfig).")
+
+
 def _cmd_backtest(symbols: list[str]) -> None:
     symbols = [s.upper() for s in symbols] or available_symbols()
     if not symbols:
@@ -152,6 +166,8 @@ def main(argv: list[str] | None = None) -> int:
     ev_p.add_argument("topic", nargs="+", help="topic to search, e.g. fed rate cuts")
     bt_p = sub.add_parser("backtest", help="backtest the strategy logic over saved history")
     bt_p.add_argument("symbols", nargs="*", help="symbols to test (default: all saved)")
+    opt_p = sub.add_parser("optimize", help="sweep exit strategies, rank by risk-adjusted return")
+    opt_p.add_argument("symbols", nargs="*", help="symbols to test (default: all saved)")
     so_p = sub.add_parser("social", help="social-media research status + run (read-only)")
     so_p.add_argument("topic", nargs="*", help="topic/ticker to research")
     cp_p = sub.add_parser("copytrade", help="match leaderboard agents on the paper account")
@@ -172,6 +188,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "backtest":
         _cmd_backtest(args.symbols)
+        return 0
+    if args.command == "optimize":
+        _cmd_optimize(args.symbols)
         return 0
     if args.command == "social":
         _cmd_social(args.topic)

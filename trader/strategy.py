@@ -24,6 +24,11 @@ class StrategyConfig:
     max_return_5d_pct: float = 15.0
     # Don't buy anything when the macro regime is outright bearish.
     block_when_macro_bearish: bool = True
+    # Exit discipline (validated by trader/backtest.optimize: trailing 10% was
+    # the best risk-adjusted variant — higher return AND lower drawdown than a
+    # fixed target). Winners run; a trailing stop locks in gains.
+    trail_pct: float = 0.10        # exit if price falls this far from its peak since entry
+    hard_stop_pct: float = 0.08    # absolute floor below entry
     # Portfolio construction.
     max_positions: int = 6
     position_pct_of_cash: float = 5.0  # % of current cash per new position

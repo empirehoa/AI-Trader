@@ -20,12 +20,18 @@ _HISTORY_DIR = Path(__file__).resolve().parent / "state" / "history"
 
 @dataclass
 class BacktestConfig:
-    stop_pct: float = 0.08          # exit if down this much from entry
-    target_pct: float = 0.15        # exit if up this much from entry
+    stop_pct: float = 0.08          # hard stop: exit if down this much from entry
+    target_pct: float = 0.15        # fixed-target exit (used only when exit_mode='fixed')
     max_entry_momentum: float = 0.15  # skip entries already up > this over 5d
     ma_fast: int = 5
     ma_mid: int = 20
     ma_slow: int = 60
+    # exit_mode:
+    #   'fixed'    -> exit at +target_pct, -stop_pct, or close < MA_mid
+    #   'trend'    -> hold while close >= MA_mid; hard stop at -stop_pct (let winners run)
+    #   'trailing' -> exit if price falls trail_pct from its peak since entry; hard stop too
+    exit_mode: str = "trend"
+    trail_pct: float = 0.10
 
 
 @dataclass
@@ -64,7 +70,7 @@ def backtest_symbol(symbol: str, cfg: BacktestConfig | None = None) -> BacktestR
         return None
 
     in_pos = False
-    entry = stop = target = 0.0
+    entry = stop = target = pos_peak = 0.0
     trade_returns: list[float] = []
     equity = 1.0
     peak = 1.0
@@ -85,10 +91,17 @@ def backtest_symbol(symbol: str, cfg: BacktestConfig | None = None) -> BacktestR
             if stacked and momentum_ok:
                 in_pos = True
                 entry = price
+                pos_peak = price
                 stop = entry * (1 - cfg.stop_pct)
                 target = entry * (1 + cfg.target_pct)
         else:
-            exit_now = price <= stop or price >= target or price < ma_m
+            pos_peak = max(pos_peak, price)
+            if cfg.exit_mode == "fixed":
+                exit_now = price <= stop or price >= target or price < ma_m
+            elif cfg.exit_mode == "trailing":
+                exit_now = price <= stop or price <= pos_peak * (1 - cfg.trail_pct)
+            else:  # 'trend': let winners run while trend holds
+                exit_now = price <= stop or price < ma_m
             if exit_now:
                 r = price / entry - 1
                 trade_returns.append(r)
@@ -115,3 +128,55 @@ def available_symbols() -> list[str]:
     if not _HISTORY_DIR.exists():
         return []
     return sorted(p.stem for p in _HISTORY_DIR.glob("*.json"))
+
+
+@dataclass
+class Variant:
+    label: str
+    config: BacktestConfig
+    avg_return_pct: float       # mean total return across symbols
+    avg_buy_hold_pct: float
+    avg_drawdown_pct: float
+    beat_buy_hold: int          # how many symbols it beat B&H on
+    symbols: int
+
+    @property
+    def return_over_dd(self) -> float:
+        """Risk-adjusted score: return per unit of drawdown."""
+        return self.avg_return_pct / self.avg_drawdown_pct if self.avg_drawdown_pct else 0.0
+
+
+def _variant_configs() -> list[tuple[str, BacktestConfig]]:
+    out: list[tuple[str, BacktestConfig]] = [
+        ("fixed +15%/-8%", BacktestConfig(exit_mode="fixed")),
+        ("trend (hold>MA20)", BacktestConfig(exit_mode="trend")),
+    ]
+    for trail in (0.08, 0.10, 0.15):
+        out.append((f"trailing {int(trail*100)}%", BacktestConfig(exit_mode="trailing", trail_pct=trail)))
+    for stop in (0.06, 0.10, 0.12):
+        out.append((f"trend stop -{int(stop*100)}%", BacktestConfig(exit_mode="trend", stop_pct=stop)))
+    return out
+
+
+def optimize(symbols: list[str] | None = None) -> list[Variant]:
+    """Sweep exit strategies over the saved universe; rank by risk-adjusted return."""
+    symbols = symbols or available_symbols()
+    variants: list[Variant] = []
+    for label, cfg in _variant_configs():
+        results = [r for s in symbols if (r := backtest_symbol(s, cfg))]
+        if not results:
+            continue
+        n = len(results)
+        variants.append(
+            Variant(
+                label=label,
+                config=cfg,
+                avg_return_pct=sum(r.total_return_pct for r in results) / n,
+                avg_buy_hold_pct=sum(r.buy_hold_return_pct for r in results) / n,
+                avg_drawdown_pct=sum(r.max_drawdown_pct for r in results) / n,
+                beat_buy_hold=sum(1 for r in results if r.total_return_pct > r.buy_hold_return_pct),
+                symbols=n,
+            )
+        )
+    variants.sort(key=lambda v: v.return_over_dd, reverse=True)
+    return variants

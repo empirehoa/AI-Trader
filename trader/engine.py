@@ -6,7 +6,9 @@ changes nothing. Pass execute=True to actually place paper trades.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 from .client import Ai4TradeClient
 from .scorecard import Scorecard
@@ -54,21 +56,52 @@ class Engine:
                 levels[entry["symbol"]] = (entry.get("stop"), entry.get("target"))
         return levels
 
+    _PEAKS = Path(__file__).resolve().parent / "state" / "peaks.json"
+
+    def _load_peaks(self) -> dict[str, float]:
+        if self._PEAKS.exists():
+            try:
+                return json.loads(self._PEAKS.read_text())
+            except ValueError:
+                return {}
+        return {}
+
+    def _save_peaks(self, peaks: dict[str, float]) -> None:
+        self._PEAKS.parent.mkdir(parents=True, exist_ok=True)
+        self._PEAKS.write_text(json.dumps(peaks))
+
     def manage_exits(self, execute: bool = False) -> list[ExitAction]:
-        """Sell positions that have hit their recorded stop or target."""
+        """Sell positions on a trailing stop (peak-to-now) or hard stop.
+
+        Trailing logic mirrors the backtest-validated 'trailing 10%' variant:
+        a per-position peak is tracked across cycles; we exit when price falls
+        trail_pct from that peak, or breaches the hard stop below entry.
+        """
         snap = self.scorecard.snapshot()
         levels = self._stops_targets()
+        peaks = self._load_peaks()
+        cfg = self.strategy.config
+        held = {p["symbol"] for p in snap["positions"]}
+        # forget peaks for positions we no longer hold
+        peaks = {k: v for k, v in peaks.items() if k in held}
+
         actions: list[ExitAction] = []
         for p in snap["positions"]:
             sym = p["symbol"]
-            stop, target = levels.get(sym, (None, None))
             cur = p["current"]
             qty = p["qty"]
+            entry = p["entry"]
+            peak = max(peaks.get(sym, 0.0), cur, entry)
+            peaks[sym] = peak
+            hard_stop, _ = levels.get(sym, (None, None))
+            if hard_stop is None and entry:
+                hard_stop = entry * (1 - cfg.hard_stop_pct)
+            trail_level = peak * (1 - cfg.trail_pct)
             reason = None
-            if stop is not None and cur <= stop:
+            if hard_stop is not None and cur <= hard_stop:
                 reason = "stop"
-            elif target is not None and cur >= target:
-                reason = "target"
+            elif cur <= trail_level:
+                reason = "trailing"
             if not reason:
                 continue
             action = ExitAction(sym, qty, cur, reason)
@@ -82,10 +115,12 @@ class Engine:
                     {"action": "sell", "symbol": sym, "qty": qty, "fill_price": fill,
                      "reason": reason, "signal_id": resp.get("signal_id"), "mode": "paper"}
                 )
+                peaks.pop(sym, None)
                 action.note = f"SOLD {qty:.0f} {sym} @ ${fill} ({reason})"
             else:
                 action.note = f"DRY-RUN: would sell {qty:.0f} {sym} @ ~${cur:.2f} ({reason})"
             actions.append(action)
+        self._save_peaks(peaks)
         return actions
 
     def macro_context(self, limit: int = 3) -> list[str]:

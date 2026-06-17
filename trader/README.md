@@ -28,6 +28,7 @@ python -m trader.cli run                 # DRY-RUN: print the buys it would plac
 python -m trader.cli run --execute       # place those paper trades (simulated $)
 python -m trader.cli loop --execute      # autonomous loop: exits + entries on an interval
 python -m trader.cli backtest AMD NVDA   # backtest the strategy logic over real history
+python -m trader.cli optimize            # sweep exit strategies, rank by risk-adjusted return
 python -m trader.cli social NVDA         # social-media research status + run (read-only)
 ```
 
@@ -56,6 +57,14 @@ not supported** by the research engine.
 `backtest` replays a faithful proxy of the strategy (stacked bullish MAs +
 controlled momentum, stop −8% / target +15%) over real daily closes and
 reports trades, win rate, total vs buy-and-hold return, and max drawdown.
+
+`optimize` sweeps exit strategies (fixed target, trend-hold, trailing stops)
+across the saved universe and ranks them by return-over-drawdown. The current
+default — a **10% trailing stop** — won that sweep (higher return and lower
+drawdown than a fixed target) and is what the live engine's exit management
+uses. Note: in a strong bull sample no variant beats raw buy-and-hold on
+absolute return; the edge is drawdown control, which matters most in choppy or
+falling markets.
 
 History lives in `trader/state/history/<SYMBOL>.json` (git-ignored). Regenerate
 it by pulling daily bars from the Robinhood MCP (`get_equity_historicals`,
