@@ -1,0 +1,3 @@
+# Local engine state — journals and snapshots are machine-specific, never commit.
+*
+!.gitignore
