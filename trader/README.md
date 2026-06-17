@@ -21,11 +21,34 @@ pip install -r service/requirements.txt   # provides `requests`
 ## Usage
 
 ```bash
-python -m trader.cli status         # current scorecard: equity, cash, positions, P&L
-python -m trader.cli scan           # rank featured candidates + show why each passed/failed
-python -m trader.cli run            # DRY-RUN: print the buys it would place
-python -m trader.cli run --execute  # place those paper trades (simulated $)
+python -m trader.cli status              # scorecard: equity, cash, positions, P&L
+python -m trader.cli scan                # rank candidates + show why each passed/failed
+python -m trader.cli events fed rate     # live Polymarket odds for a topic (no API key)
+python -m trader.cli run                 # DRY-RUN: print the buys it would place
+python -m trader.cli run --execute       # place those paper trades (simulated $)
+python -m trader.cli loop --execute      # autonomous loop: exits + entries on an interval
 ```
+
+## Autonomous loop
+
+`loop` runs the full cycle — pull macro context, manage exits (sell on
+stop/target), evaluate new entries — on a fixed interval until stopped.
+
+```bash
+python -m trader.cli loop --execute --interval 900 --daily-cap 5
+```
+
+Guardrails (so an unattended run can't misbehave):
+
+- **Kill switch** — `touch trader/state/STOP` halts it before the next cycle.
+- **Daily entry cap** — `--daily-cap` limits new buys per UTC day; once hit,
+  the loop manages exits only.
+- **Bounded run** — `--max-cycles N` stops after N cycles (0 = until killed).
+
+> The loop trades **only the simulated account**. Real-money and options
+> execution are deliberately not wired here — those stay behind the Robinhood
+> MCP, which confirms every order with a human. The paper platform also has no
+> options endpoint; options live only on the real account.
 
 ## How decisions are made
 

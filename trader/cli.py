@@ -13,6 +13,7 @@ import sys
 
 from .client import Ai4TradeClient, Ai4TradeError
 from .engine import Engine
+from .loop import Loop
 from .research import search_events
 
 
@@ -48,6 +49,16 @@ def _cmd_events(topic: str) -> None:
         print()
 
 
+def _cmd_loop(engine: Engine, args) -> None:
+    loop = Loop(
+        engine=engine,
+        interval_seconds=args.interval,
+        max_cycles=args.max_cycles,
+        max_new_trades_per_day=args.daily_cap,
+    )
+    loop.run(execute=args.execute)
+
+
 def _cmd_run(engine: Engine, execute: bool) -> None:
     decisions = engine.run(execute=execute)
     actionable = [d for d in decisions if d.quantity >= 1]
@@ -69,6 +80,11 @@ def main(argv: list[str] | None = None) -> int:
     ev_p.add_argument("topic", nargs="+", help="topic to search, e.g. fed rate cuts")
     run_p = sub.add_parser("run", help="evaluate and (optionally) place paper trades")
     run_p.add_argument("--execute", action="store_true", help="actually place paper trades")
+    loop_p = sub.add_parser("loop", help="autonomous paper loop (exits + entries on an interval)")
+    loop_p.add_argument("--execute", action="store_true", help="place paper trades (else dry-run)")
+    loop_p.add_argument("--interval", type=int, default=900, help="seconds between cycles (default 900)")
+    loop_p.add_argument("--max-cycles", type=int, default=0, dest="max_cycles", help="stop after N cycles (0 = until killed)")
+    loop_p.add_argument("--daily-cap", type=int, default=5, dest="daily_cap", help="max new buys per UTC day")
     args = parser.parse_args(argv)
 
     if args.command == "events":
@@ -87,6 +103,8 @@ def main(argv: list[str] | None = None) -> int:
         _cmd_scan(engine)
     elif args.command == "run":
         _cmd_run(engine, execute=args.execute)
+    elif args.command == "loop":
+        _cmd_loop(engine, args)
     return 0
 
 
