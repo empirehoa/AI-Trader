@@ -33,6 +33,13 @@ class ExitAction:
 
 
 class Engine:
+    # Liquid names to score each cycle in addition to ai4trade's featured set.
+    # Unavailable symbols are skipped silently.
+    WATCHLIST = [
+        "AMD", "NVDA", "AAPL", "MSFT", "META", "AMZN", "GOOGL", "TSLA",
+        "AVGO", "PLTR", "SPY", "QQQ", "AMD", "MU", "SMCI",
+    ]
+
     def __init__(
         self,
         client: Ai4TradeClient | None = None,
@@ -41,6 +48,24 @@ class Engine:
         self.client = client or Ai4TradeClient()
         self.strategy = strategy or Strategy()
         self.scorecard = Scorecard(self.client)
+
+    def _candidate_items(self) -> list[dict]:
+        """ai4trade featured set + watchlist analyses, deduped by symbol."""
+        items: dict[str, dict] = {}
+        for it in self.client.featured_stocks():
+            sym = it.get("symbol")
+            if sym:
+                items[sym] = it
+        for sym in self.WATCHLIST:
+            if sym in items:
+                continue
+            try:
+                d = self.client.stock_analysis(sym)
+                if d.get("available"):
+                    items[sym] = d
+            except Exception:
+                continue
+        return list(items.values())
 
     def _macro_verdict(self) -> str | None:
         try:
@@ -133,7 +158,7 @@ class Engine:
 
     def scan(self) -> tuple[list[Candidate], str | None]:
         macro = self._macro_verdict()
-        items = self.client.featured_stocks()
+        items = self._candidate_items()
         return self.strategy.rank(items, macro), macro
 
     def plan(self) -> list[Decision]:
