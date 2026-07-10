@@ -15,7 +15,7 @@ from .client import Ai4TradeClient, Ai4TradeError
 from .engine import Engine
 from .loop import Loop
 from .research import search_events
-from .backtest import backtest_symbol, available_symbols, optimize
+from .backtest import backtest_symbol, available_symbols, optimize, BacktestConfig
 from . import social
 from . import copytrade as ct
 
@@ -121,9 +121,12 @@ def _cmd_backtest(symbols: list[str]) -> None:
     if not symbols:
         print("No history files in trader/state/history/. Fetch via the Robinhood MCP first (see README).")
         return
+    # Backtest with the SAME config the live engine trades (trailing 10%),
+    # so these numbers reflect the deployed strategy.
+    cfg = BacktestConfig(exit_mode="trailing", trail_pct=0.10)
     print(f"{'SYM':<6}{'TRADES':>7}{'WIN%':>7}{'AVG%':>8}{'TOTAL%':>9}{'B&H%':>9}{'MAXDD%':>8}")
     for sym in symbols:
-        r = backtest_symbol(sym)
+        r = backtest_symbol(sym, cfg)
         if r is None:
             print(f"{sym:<6}  (insufficient history)")
             continue
@@ -131,8 +134,8 @@ def _cmd_backtest(symbols: list[str]) -> None:
             f"{r.symbol:<6}{r.trades:>7}{r.win_rate_pct:>7.0f}{r.avg_trade_pct:>8.1f}"
             f"{r.total_return_pct:>9.1f}{r.buy_hold_return_pct:>9.1f}{r.max_drawdown_pct:>8.1f}"
         )
-    print("\n(Strategy = stacked bullish MAs + controlled momentum, stop -8% / target +15%.")
-    print(" B&H = buy-and-hold over the same window. Logic proxy of the live rules, not a return promise.)")
+    print("\n(Strategy = stacked bullish MAs + controlled momentum, 10% trailing stop / -8% hard stop")
+    print(" — the live engine's config. B&H = buy-and-hold over the same window. Not a return promise.)")
 
 
 def _cmd_loop(engine: Engine, args) -> None:

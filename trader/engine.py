@@ -37,7 +37,7 @@ class Engine:
     # Unavailable symbols are skipped silently.
     WATCHLIST = [
         "AMD", "NVDA", "AAPL", "MSFT", "META", "AMZN", "GOOGL", "TSLA",
-        "AVGO", "PLTR", "SPY", "QQQ", "AMD", "MU", "SMCI",
+        "AVGO", "PLTR", "SPY", "QQQ", "MU", "SMCI",
     ]
 
     def __init__(
