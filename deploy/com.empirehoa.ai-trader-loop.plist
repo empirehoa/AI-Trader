@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS launchd unit for the Mac Mini. Keeps the loop running and restarts it.
+     1. Edit the two paths below to your checkout location and username.
+     2. cp deploy/com.empirehoa.ai-trader-loop.plist ~/Library/LaunchAgents/
+     3. launchctl load -w ~/Library/LaunchAgents/com.empirehoa.ai-trader-loop.plist
+     Stop with: launchctl unload ~/Library/LaunchAgents/com.empirehoa.ai-trader-loop.plist -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.empirehoa.ai-trader-loop</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/CHANGE_ME/AI-Trader/deploy/run-loop.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/CHANGE_ME/AI-Trader</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/CHANGE_ME/AI-Trader/trader/state/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/CHANGE_ME/AI-Trader/trader/state/logs/launchd.err.log</string>
+</dict>
+</plist>

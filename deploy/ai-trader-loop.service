@@ -1,0 +1,20 @@
+# Linux systemd unit for a server deployment.
+#   sudo cp deploy/ai-trader-loop.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now ai-trader-loop
+#   journalctl -u ai-trader-loop -f      # follow logs
+# Edit WorkingDirectory / EnvironmentFile to your checkout path.
+[Unit]
+Description=AI-Trader autonomous paper-trading loop
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/AI-Trader
+EnvironmentFile=/opt/AI-Trader/.env.secrets
+ExecStart=/usr/bin/env bash /opt/AI-Trader/deploy/run-loop.sh
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
