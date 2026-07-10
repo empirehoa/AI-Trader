@@ -34,10 +34,12 @@ class ExitAction:
 
 class Engine:
     # Liquid names to score each cycle in addition to ai4trade's featured set.
+    # This is the full set ai4trade currently provides analysis for (verified);
+    # the platform's coverage — not this list — is what caps the universe.
     # Unavailable symbols are skipped silently.
     WATCHLIST = [
-        "AMD", "NVDA", "AAPL", "MSFT", "META", "AMZN", "GOOGL", "TSLA",
-        "AVGO", "PLTR", "SPY", "QQQ", "MU", "SMCI",
+        "AMD", "NVDA", "AAPL", "MSFT", "META", "AMZN", "GOOGL", "TSLA", "AVGO",
+        "PLTR", "SPY", "QQQ", "MU", "IBM", "BA", "LLY", "NKE", "HD",
     ]
 
     def __init__(
