@@ -33,7 +33,15 @@ class Scorecard:
         return [json.loads(line) for line in _JOURNAL.read_text().splitlines() if line.strip()]
 
     # -- live portfolio --------------------------------------------------
-    def snapshot(self) -> dict:
+    def snapshot(self, live_prices: dict[str, float] | None = None) -> dict:
+        """Portfolio as the platform reports it.
+
+        The platform's positions feed can lag (it re-marks positions on a
+        delay). When ``live_prices`` is supplied (symbol -> fresh price from
+        the live analysis feed), those override the stale portfolio marks so
+        valuation, P&L, and exit checks reflect the current price. Falls back
+        to the broker mark for any symbol without a live price.
+        """
         me = self.client.me()
         pos = self.client.positions()
         positions = pos.get("positions", [])
@@ -46,8 +54,13 @@ class Scorecard:
             qty = float(p.get("quantity") or 0)
             entry = float(p.get("entry_price") or 0)
             current = float(p.get("current_price") or entry)
-            pnl = p.get("pnl")
-            pnl = float(pnl) if pnl is not None else (current - entry) * qty
+            live = (live_prices or {}).get(p.get("symbol"))
+            if live:
+                current = float(live)
+                pnl = (current - entry) * qty
+            else:
+                pnl = p.get("pnl")
+                pnl = float(pnl) if pnl is not None else (current - entry) * qty
             invested += entry * qty
             unrealized += pnl
             rows.append(
@@ -75,8 +88,8 @@ class Scorecard:
         }
 
     # -- rendering -------------------------------------------------------
-    def render(self) -> str:
-        s = self.snapshot()
+    def render(self, live_prices: dict[str, float] | None = None) -> str:
+        s = self.snapshot(live_prices=live_prices)
         lines = []
         lines.append("=" * 60)
         lines.append("  AI-TRADER PAPER SCORECARD")

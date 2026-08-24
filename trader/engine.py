@@ -69,6 +69,24 @@ class Engine:
                 continue
         return list(items.values())
 
+    def live_prices(self, symbols: list[str]) -> dict[str, float]:
+        """Fresh per-symbol price from the live analysis feed.
+
+        The platform's *positions* feed re-marks on a lag; the *analysis*
+        feed is current. We use these to value and exit-check held positions
+        against the real price instead of a stale portfolio mark.
+        """
+        out: dict[str, float] = {}
+        for sym in symbols:
+            try:
+                d = self.client.stock_analysis(sym)
+                px = d.get("current_price")
+                if d.get("available") and px:
+                    out[sym] = float(px)
+            except Exception:
+                continue
+        return out
+
     def _macro_verdict(self) -> str | None:
         try:
             return self.client.market_overview().get("macro_verdict")
@@ -105,6 +123,11 @@ class Engine:
         trail_pct from that peak, or breaches the hard stop below entry.
         """
         snap = self.scorecard.snapshot()
+        # Re-mark to the live analysis feed so trailing/hard stops evaluate
+        # against the current price, not the platform's lagged position mark.
+        live = self.live_prices([p["symbol"] for p in snap["positions"]])
+        if live:
+            snap = self.scorecard.snapshot(live_prices=live)
         levels = self._stops_targets()
         peaks = self._load_peaks()
         cfg = self.strategy.config
@@ -195,6 +218,9 @@ class Engine:
         exits = self.manage_exits(execute=execute)
         entries = self.run(execute=execute)
         snap = self.scorecard.snapshot()
+        live = self.live_prices([p["symbol"] for p in snap["positions"]])
+        if live:
+            snap = self.scorecard.snapshot(live_prices=live)
         return {
             "exits": exits,
             "entries": [d for d in entries if d.quantity >= 1],

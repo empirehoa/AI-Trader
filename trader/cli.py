@@ -21,7 +21,11 @@ from . import copytrade as ct
 
 
 def _cmd_status(engine: Engine) -> None:
-    print(engine.scorecard.render())
+    # Mark positions to the live analysis feed (the platform's position feed
+    # lags); fall back to broker marks for anything without a live price.
+    snap = engine.scorecard.snapshot()
+    live = engine.live_prices([p["symbol"] for p in snap["positions"]])
+    print(engine.scorecard.render(live_prices=live))
 
 
 def _cmd_scan(engine: Engine) -> None:
